@@ -1,6 +1,6 @@
 import flet as ft
 import datetime
-import home
+import homepage
 
 class App:
     def pageExersices(self):
@@ -12,8 +12,10 @@ class App:
         self.page.add(ft.Text(value="sett", color="black"))
 
     def main(self, page: ft.Page):
+        page.window_width = 1080/2
+        page.window_height = 2340/2
         self.page = page
-        self.homePage = home.HomePage(page)
+        self.homePage = homepage.HomePage(page)
 
         page.title="Fitter"
 
