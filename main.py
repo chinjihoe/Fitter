@@ -1,21 +1,17 @@
 import flet as ft
-import datetime
-import homepage
+import homepage, settingspage
 
 class App:
     def pageExersices(self):
         self.page.clean()
-        self.page.add(ft.Text(value="ex", color="black"))
-
-    def pageSettings(self):
-        self.page.clean()
-        self.page.add(ft.Text(value="sett", color="black"))
+        self.page.add(ft.SafeArea(ft.Text(value="ex", color="black"), expand=True))
 
     def main(self, page: ft.Page):
-        page.window_width = 1080/2
-        page.window_height = 2340/2
+        # page.window_width = 1080/2
+        # page.window_height = 2340/2
         self.page = page
         self.homePage = homepage.HomePage(page)
+        self.settingsPage = settingspage.SettingsPage(page)
 
         page.title="Fitter"
 
@@ -26,7 +22,7 @@ class App:
             elif navIndex == 1:
                 self.pageExersices()
             elif navIndex == 2:
-                self.pageSettings()
+                self.settingsPage.pageSettings()
             page.update()
 
         page.navigation_bar = ft.NavigationBar(
