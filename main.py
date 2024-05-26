@@ -15,24 +15,24 @@ class App:
 
         page.title="Fitter"
 
-        def navbar_clicked(e):
-            navIndex = page.navigation_bar.selected_index
-            if navIndex == 0:
-                self.homePage.pageHome()
-            elif navIndex == 1:
-                self.pageExersices()
-            elif navIndex == 2:
-                self.settingsPage.pageSettings()
-            page.update()
+        # def navbar_clicked(e):
+        #     navIndex = page.navigation_bar.selected_index
+        #     if navIndex == 0:
+        #         self.homePage.pageHome()
+        #     elif navIndex == 1:
+        #         self.pageExersices()
+        #     elif navIndex == 2:
+        #         self.settingsPage.pageSettings()
+        #     page.update()
 
-        page.navigation_bar = ft.NavigationBar(
-            destinations=[
-                ft.NavigationDestination(icon=ft.icons.HOME, label="Home"),
-                ft.NavigationDestination(icon=ft.icons.PHOTO, label="Exercises"),
-                ft.NavigationDestination(icon=ft.icons.SETTINGS, label="Settings"),
-            ],
-            on_change=navbar_clicked
-        )
+        # page.navigation_bar = ft.NavigationBar(
+        #     destinations=[
+        #         ft.NavigationDestination(icon=ft.icons.HOME, label="Home"),
+        #         ft.NavigationDestination(icon=ft.icons.PHOTO, label="Exercises"),
+        #         ft.NavigationDestination(icon=ft.icons.SETTINGS, label="Settings"),
+        #     ],
+        #     on_change=navbar_clicked
+        # )
 
         self.homePage.pageHome()
 
