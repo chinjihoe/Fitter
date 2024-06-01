@@ -35,6 +35,7 @@ class App:
         # )
 
         self.homePage.pageHome()
+        page.update()
 
 
 app = App()

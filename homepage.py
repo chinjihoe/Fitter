@@ -43,7 +43,14 @@ class HomePage:
 
     def loadData(self):
         for exercise in self.exercises:
-            value = self.page.client_storage.get(exercise)
+            try:
+                if self.page.client_storage.contains_key(exercise):
+                    value = self.page.client_storage.get(exercise)
+                else:
+                    value = None
+            except:
+                value = None
+
             if value != None:
                 self.exerciseData[exercise] = value
             else:
@@ -57,7 +64,6 @@ class HomePage:
 
         self.exerciseSelection = ft.Dropdown(
             on_change=dropdown_changed,
-            height=55
         )
         for ex in self.exercises:
             self.exerciseSelection.options.append(ft.dropdown.Option(ex))
@@ -147,8 +153,8 @@ class HomePage:
             self.updateProgressChartData()
 
         self.entryRow = ft.Row(controls=[
-            reps,
             sets,
+            reps,
             weight,
             ft.ElevatedButton(text="Add", on_click=add_clicked),
         ])
@@ -249,8 +255,8 @@ class HomePage:
             )
         ]
 
-        self.chart.data_series = data_1
-        self.chart.left_axis = ft.ChartAxis(
+        self.progresschart.data_series = data_1
+        self.progresschart.left_axis = ft.ChartAxis(
                 labels=[ft.ChartAxisLabel(value=i, label=ft.Text(i, size=14, weight=ft.FontWeight.BOLD)) for i in range(min_y,max_y)],
                 labels_size=20,
             )
@@ -278,7 +284,7 @@ class HomePage:
 
         # print(bottom_labels)
 
-        self.chart.bottom_axis=ft.ChartAxis(
+        self.progresschart.bottom_axis=ft.ChartAxis(
             labels=[
                 ft.ChartAxisLabel(
                     value=bottom_label[0], # X-axis index
@@ -294,15 +300,15 @@ class HomePage:
             labels_interval = 1,
             show_labels = True
         )
-        self.chart.min_x = min_x
-        self.chart.max_x = max_x
-        self.chart.min_y = min_y
-        self.chart.max_y = max_y
+        self.progresschart.min_x = min_x
+        self.progresschart.max_x = max_x
+        self.progresschart.min_y = min_y
+        self.progresschart.max_y = max_y
         self.page.update()
 
     # Create progress chart object
     def progressChart(self):
-        self.chart = ft.LineChart(
+        self.progresschart = ft.LineChart(
             data_series=None,
             border=ft.border.all(3, ft.colors.with_opacity(0.2, ft.colors.ON_SURFACE)),
             horizontal_grid_lines=ft.ChartGridLines(
@@ -314,7 +320,7 @@ class HomePage:
             min_x=0,
             max_x=1,
             animate=ft.Animation(1000, ft.AnimationCurve.EASE),
-            expand=True,
+            # expand=True,
             height=400
         )
 
@@ -342,7 +348,6 @@ class HomePage:
             width=200,
             on_change=dropdown_changed,
             options=[ft.dropdown.Option(option) for option in self.chartTimeFrameOptions],
-            height=55
         )
         self.timeframeSelection.value = self.timeframeSelection.options[0].key
     
@@ -382,18 +387,22 @@ class HomePage:
         self.loadData()
         self.updateProgressChartData()
 
-        self.page.add(ft.SafeArea(ft.Column([
+        page_col = ft.Column([
                 self.exerciseSelection, 
                 self.dateRow, 
                 self.entryRow, 
-                self.chart, 
+                self.progresschart, 
                 self.chartSettingsCol
             ], 
-            # auto_scroll=True,
-            # scroll=ft.ScrollMode.AUTO,
-            tight=True,
-            # expand=True
-            alignment=ft.MainAxisAlignment.START
-            ), 
-            expand=True,
-        ))
+            scroll=ft.ScrollMode.HIDDEN,
+            height=self.page.height,
+            width=self.page.width,
+        )
+
+        self.page.add(ft.SafeArea(page_col, expand=True))
+
+        def page_resized(e):
+            page_col.height=self.page.height
+            page_col.width=self.page.width
+            self.page.update()
+        self.page.on_resize = page_resized
