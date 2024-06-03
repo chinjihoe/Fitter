@@ -1,5 +1,6 @@
 import flet as ft
 import datetime
+from threading import Timer
 
 def date_range(start, end):
     # this function takes two dates and generates all the dates in the range
@@ -19,8 +20,10 @@ class HomePage:
             "Hyperextension", 
             "Hipabduction (inward)", 
             "Hipabduction (outward)", 
-            "Abdominal crunch", 
+            "Abdominal crunch",
             "Dips",
+            "Back kick",
+            "Seated row",
             "Running", 
             "Cross trainer"
             ]
@@ -40,6 +43,8 @@ class HomePage:
         ]
         self.chartTimeframe = self.chartTimeFrameOptions[0]
         self.chartTimeOffset = 0
+        self.exerciseNotesText = ""
+        self.notesTimer = None
 
     def loadData(self):
         for exercise in self.exercises:
@@ -56,6 +61,15 @@ class HomePage:
             else:
                 self.exerciseData[exercise] = []
             print(f"{exercise}: {value}\n")
+
+        try:
+            if self.page.client_storage.contains_key("exerciseNotesText"):
+                self.exerciseNotesText = self.page.client_storage.get("exerciseNotesText")
+            else:
+                self.exerciseNotesText = ""
+        except:
+            self.exerciseNotesText = ""
+        print(self.exerciseNotesText)
 
     # Exercise dropdown menu
     def exerciseSelect(self):
@@ -127,10 +141,11 @@ class HomePage:
 
     # Adds entry in selected exercise with picked date
     def entryAdd(self):
-        _Numberfilter = ft.InputFilter('^[0-9]*')
-        reps = ft.TextField(label="Reps", width=80, height=40, multiline=False, autofocus=False, input_filter=_Numberfilter, keyboard_type=ft.KeyboardType.NUMBER)
-        sets = ft.TextField(label="Sets", width=80, height=40, multiline=False, autofocus=False, input_filter=_Numberfilter, keyboard_type=ft.KeyboardType.NUMBER)
-        weight = ft.TextField(label="Weight", width=80, height=40, multiline=False, autofocus=False, input_filter=_Numberfilter, keyboard_type=ft.KeyboardType.NUMBER)
+        positiveNumberfilter = ft.InputFilter('^[0-9]*') # only positive numbers allowed
+        decimalNumberfilter = ft.InputFilter('-?\d+\.?\d*') # all decimal numbers allowed
+        reps = ft.TextField(label="Reps", width=80, height=40, multiline=False, autofocus=False, input_filter=positiveNumberfilter, keyboard_type=ft.KeyboardType.NUMBER)
+        sets = ft.TextField(label="Sets", width=80, height=40, multiline=False, autofocus=False, input_filter=positiveNumberfilter, keyboard_type=ft.KeyboardType.NUMBER)
+        weight = ft.TextField(label="Weight", width=80, height=40, multiline=False, autofocus=False, input_filter=decimalNumberfilter, keyboard_type=ft.KeyboardType.NUMBER)
         
         def add_clicked(e):
             date_already_exists = False
@@ -171,7 +186,7 @@ class HomePage:
                 days_amount = (cur_date-entry_date).days
                 if days_amount >= 0+(self.chartTimeOffset*30) and days_amount <= 30+(self.chartTimeOffset*30):
                     print(cur_date,entry_date,days_amount)
-                    entries.append([int(f"{date[2]}{date[1]}{date[0]}"), int(entry['reps']), int(entry['sets']), int(entry['weight'])]) # [Date, reps, sets, weight]
+                    entries.append([int(f"{date[2]}{date[1]}{date[0]}"), int(entry['reps']), int(entry['sets']), float(entry['weight'])]) # [Date, reps, sets, weight]
             elif self.chartTimeframe == self.chartTimeFrameOptions[1]:
                 months_amount = cur_date.month - entry_date.month + 1
                 print(cur_date.month, entry_date.month, months_amount)
@@ -257,7 +272,7 @@ class HomePage:
 
         self.progresschart.data_series = data_1
         self.progresschart.left_axis = ft.ChartAxis(
-                labels=[ft.ChartAxisLabel(value=i, label=ft.Text(i, size=14, weight=ft.FontWeight.BOLD)) for i in range(min_y,max_y)],
+                labels=[ft.ChartAxisLabel(value=i, label=ft.Text(i, size=14, weight=ft.FontWeight.BOLD)) for i in range(int(min_y),int(max_y)+1)],
                 labels_size=20,
             )
         
@@ -366,8 +381,8 @@ class HomePage:
         ])
 
         checkboxRow = ft.Row(controls=[
-            repsCbox,
             setsCbox,
+            repsCbox,
             weightCbox,
         ])
 
@@ -375,16 +390,43 @@ class HomePage:
             checkboxRow,
             timeframeRow
         ])
+
+    def exerciseNotes(self):
+        def writeNotes():
+            self.page.client_storage.set("exerciseNotesText", self.exerciseNotesText)
+            print(self.exerciseNotesText)
+
+        def notes_onchange(e):
+            self.exerciseNotesText = self.notesTextField.value
+
+            if self.notesTimer is not None:
+                self.notesTimer.cancel()
+                self.notesTimer = Timer(1, writeNotes)
+                self.notesTimer.start()
+            else:
+                self.notesTimer = Timer(1, writeNotes)
+                self.notesTimer.start()
+        
+        self.notesTextField = ft.TextField(
+            label="Notes",
+            multiline=True,
+            min_lines=5,
+            value=self.exerciseNotesText,
+            on_change=notes_onchange
+        )
+        self.notesContainer = ft.Container(content=self.notesTextField, margin=ft.margin.only(top=10))
     
     def pageHome(self):
+        self.loadData()
+
         self.page.clean()
         self.exerciseSelect()
         self.datePicker()
         self.entryAdd()
         self.progressChart()
         self.chartSettings()
-        
-        self.loadData()
+        self.exerciseNotes()
+       
         self.updateProgressChartData()
 
         page_col = ft.Column([
@@ -392,7 +434,8 @@ class HomePage:
                 self.dateRow, 
                 self.entryRow, 
                 self.progresschart, 
-                self.chartSettingsCol
+                self.chartSettingsCol,
+                self.notesContainer
             ], 
             scroll=ft.ScrollMode.HIDDEN,
             height=self.page.height,
