@@ -1,5 +1,6 @@
 import flet as ft
 import datetime
+import database
 from threading import Timer
 
 def date_range(start, end):
@@ -8,27 +9,29 @@ def date_range(start, end):
         yield start + datetime.timedelta(days=d)
 
 class HomePage:
-    def __init__(self, page):
+    def __init__(self, page: ft.Page, db:database.DB_Fitter, curentUser):
         self.page = page
+        self.db = db
+        self.curentUser = curentUser
         self.exercises = [
-            "Bicep curl", 
-            "Chest press", 
-            "Shoulder press", 
-            "Leg press", 
-            "Squat", 
-            "Lateral pulldown", 
-            "Hyperextension", 
-            "Hipabduction (inward)", 
-            "Hipabduction (outward)", 
-            "Abdominal crunch",
-            "Dips",
-            "Back kick",
-            "Seated row",
-            "Running", 
-            "Cross trainer"
+            ("Bicep curl", "bicepcurls"),
+            ("Chest press", "chestpress"), 
+            ("Shoulder press", "shoulderpress"), 
+            ("Leg press", "legpress"), 
+            ("Squat", "squat"), 
+            ("Lateral pulldown", "lateralpulldown"), 
+            ("Hyperextension", "hyperextension"), 
+            ("Hipabduction (inward)", "hipabductioninward"), 
+            ("Hipabduction (outward)", "hipabductionoutward"), 
+            ("Abdominal crunch", "abdominalcrunch"),
+            ("Dips", "dips"),
+            ("Back kick", "backkick"),
+            ("Seated row", "seatedrow"),
+            ("Running", "running"), 
+            ("Cross trainer", "crosstrainer")
             ]
         self.selectedDate = datetime.datetime.now().strftime('%d %B %Y')
-        self.exerciseData = {}
+        # self.exerciseData = {}
         self.month_abbr = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sept", "Oct", "Nov", "Dec"]
 
         self.showRepsGraph = True
@@ -43,44 +46,36 @@ class HomePage:
         ]
         self.chartTimeframe = self.chartTimeFrameOptions[0]
         self.chartTimeOffset = 0
-        self.exerciseNotesText = ""
         self.notesTimer = None
 
-    def loadData(self):
-        for exercise in self.exercises:
-            try:
-                if self.page.client_storage.contains_key(exercise):
-                    value = self.page.client_storage.get(exercise)
-                else:
-                    value = None
-            except:
-                value = None
-
-            if value != None:
-                self.exerciseData[exercise] = value
-            else:
-                self.exerciseData[exercise] = []
-            print(f"{exercise}: {value}\n")
-
-        try:
-            if self.page.client_storage.contains_key("exerciseNotesText"):
-                self.exerciseNotesText = self.page.client_storage.get("exerciseNotesText")
-            else:
-                self.exerciseNotesText = ""
-        except:
-            self.exerciseNotesText = ""
-        print(self.exerciseNotesText)
+    def _getDBTableName(self):
+        return self.exercises[[exercise[0] for exercise in self.exercises].index(self.exerciseSelection.value)][1]
 
     # Exercise dropdown menu
     def exerciseSelect(self):
         def dropdown_changed(e):
+            db_tablename = self._getDBTableName()
+            if db_tablename == 'running' or db_tablename == 'crosstrainer':
+                self.input1.label = 'Mins'
+                self.input2.label = 'Km'
+                self.input3.label = 'Speed'
+                self.chartCBox1.label = 'Mins'
+                self.chartCBox2.label = 'Km'
+                self.chartCBox3.label = 'Speed'
+            else:
+                self.input1.label = 'Sets'
+                self.input2.label = 'Reps'
+                self.input3.label = 'Weight'
+                self.chartCBox1.label = 'Sets'
+                self.chartCBox2.label = 'Reps'
+                self.chartCBox3.label = 'Weight'
             self.updateProgressChartData()
 
         self.exerciseSelection = ft.Dropdown(
             on_change=dropdown_changed,
         )
         for ex in self.exercises:
-            self.exerciseSelection.options.append(ft.dropdown.Option(ex))
+            self.exerciseSelection.options.append(ft.dropdown.Option(ex[0]))
         self.exerciseSelection.value = self.exerciseSelection.options[0].key
 
     # Date picker overlay menu
@@ -110,13 +105,13 @@ class HomePage:
                 self.page.update()
 
             def close_dlg_yes(e):
-                for data in self.exerciseData[self.exerciseSelection.value]:
-                    if data["date"] == self.date_picker.value.strftime('%d %m %Y'):
-                        self.exerciseData[self.exerciseSelection.value].remove(data)
-                        self.page.client_storage.set(self.exerciseSelection.value, self.exerciseData[self.exerciseSelection.value])
-                        self.updateProgressChartData()
-                        break
+                db_tablename = self._getDBTableName()
+                self.db.DeleteEntry(db_tablename, self.curentUser, self.date_picker.value.strftime('%Y-%m-%d'))
+                self.updateProgressChartData()
                 dlg_modal.open = False
+                self.page.snack_bar = ft.SnackBar(ft.Text(f"Entry deleted"), bgcolor=ft.colors.BLUE)
+                self.page.snack_bar.open = True
+                self.page.update()
                 self.page.update()
 
             dlg_modal = ft.AlertDialog(
@@ -141,36 +136,27 @@ class HomePage:
 
     # Adds entry in selected exercise with picked date
     def entryAdd(self):
-        positiveNumberfilter = ft.InputFilter('^[0-9]*') # only positive numbers allowed
+        # positiveNumberfilter = ft.InputFilter('^[0-9]*') # only positive numbers allowed
         decimalNumberfilter = ft.InputFilter('-?\d+\.?\d*') # all decimal numbers allowed
-        reps = ft.TextField(label="Reps", width=80, height=40, multiline=False, autofocus=False, input_filter=positiveNumberfilter, keyboard_type=ft.KeyboardType.NUMBER)
-        sets = ft.TextField(label="Sets", width=80, height=40, multiline=False, autofocus=False, input_filter=positiveNumberfilter, keyboard_type=ft.KeyboardType.NUMBER)
-        weight = ft.TextField(label="Weight", width=80, height=40, multiline=False, autofocus=False, input_filter=decimalNumberfilter, keyboard_type=ft.KeyboardType.NUMBER)
+        self.input1 = ft.TextField(label="Sets", width=80, height=40, multiline=False, autofocus=False, input_filter=decimalNumberfilter, keyboard_type=ft.KeyboardType.NUMBER)
+        self.input2 = ft.TextField(label="Reps", width=80, height=40, multiline=False, autofocus=False, input_filter=decimalNumberfilter, keyboard_type=ft.KeyboardType.NUMBER)
+        self.input3 = ft.TextField(label="Weight", width=80, height=40, multiline=False, autofocus=False, input_filter=decimalNumberfilter, keyboard_type=ft.KeyboardType.NUMBER)
         
         def add_clicked(e):
-            date_already_exists = False
-            for data in self.exerciseData[self.exerciseSelection.value]:
-                if data["date"] == self.date_picker.value.strftime('%d %m %Y'):
-                    data["reps"] = reps.value
-                    data["sets"] = sets.value
-                    data["weight"] = weight.value
-                    date_already_exists = True
-                    break
-
-            if date_already_exists == False:
-                self.exerciseData[self.exerciseSelection.value].append({
-                    "reps": reps.value,
-                    "sets": sets.value,
-                    "weight": weight.value,
-                    "date": self.date_picker.value.strftime('%d %m %Y'),
-                })
-            self.page.client_storage.set(self.exerciseSelection.value, self.exerciseData[self.exerciseSelection.value])
+            db_tablename = self._getDBTableName()
+            if db_tablename == 'running' or db_tablename == 'crosstrainer':
+                self.db.AddDistanceEntry(db_tablename, self.curentUser, self.input1.value, self.input2.value, self.input3.value, self.date_picker.value.strftime('%Y-%m-%d'))
+            else:
+                self.db.AddWeightEntry(db_tablename, self.curentUser, self.input1.value, self.input2.value, self.input3.value, self.date_picker.value.strftime('%Y-%m-%d'))
             self.updateProgressChartData()
+            self.page.snack_bar = ft.SnackBar(ft.Text(f"Entry added"), bgcolor=ft.colors.BLUE)
+            self.page.snack_bar.open = True
+            self.page.update()
 
         self.entryRow = ft.Row(controls=[
-            sets,
-            reps,
-            weight,
+            self.input1,
+            self.input2,
+            self.input3,
             ft.ElevatedButton(text="Add", on_click=add_clicked),
         ])
 
@@ -178,34 +164,24 @@ class HomePage:
     def updateProgressChartData(self):
         entries = []
         allDates = []
-        cur_date = datetime.date.today()
-        for entry in self.exerciseData[self.exerciseSelection.value]:
-            date = entry['date'].split(' ')
-            entry_date = datetime.date(int(date[2]),int(date[1]),int(date[0]))
-            if self.chartTimeframe == self.chartTimeFrameOptions[0]:
-                days_amount = (cur_date-entry_date).days
-                if days_amount >= 0+(self.chartTimeOffset*30) and days_amount <= 30+(self.chartTimeOffset*30):
-                    print(cur_date,entry_date,days_amount)
-                    entries.append([int(f"{date[2]}{date[1]}{date[0]}"), int(entry['reps']), int(entry['sets']), float(entry['weight'])]) # [Date, reps, sets, weight]
-            elif self.chartTimeframe == self.chartTimeFrameOptions[1]:
-                months_amount = cur_date.month - entry_date.month + 1
-                print(cur_date.month, entry_date.month, months_amount)
-                if months_amount >= 1+(self.chartTimeOffset) and months_amount <= 3+(self.chartTimeOffset):
-                    entries.append([int(f"{date[2]}{date[1]}{date[0]}"), int(entry['reps']), int(entry['sets']), int(entry['weight'])]) # [Date, reps, sets, weight]
-            elif self.chartTimeframe == self.chartTimeFrameOptions[2]:
-                months_amount = cur_date.month - entry_date.month + 1
-                print(cur_date.month, entry_date.month, months_amount)
-                if months_amount >= 1+(self.chartTimeOffset*3) and months_amount <= 6+(self.chartTimeOffset*3):
-                    entries.append([int(f"{date[2]}{date[1]}{date[0]}"), int(entry['reps']), int(entry['sets']), int(entry['weight'])]) # [Date, reps, sets, weight]
-            elif self.chartTimeframe == self.chartTimeFrameOptions[3]:
-                years_amount = abs(cur_date.year - entry_date.year)
-                if years_amount == self.chartTimeOffset:
-                    entries.append([int(f"{date[2]}{date[1]}{date[0]}"), int(entry['reps']), int(entry['sets']), int(entry['weight'])]) # [Date, reps, sets, weight]
-            elif self.chartTimeframe == self.chartTimeFrameOptions[4]:
-                entries.append([int(f"{date[2]}{date[1]}{date[0]}"), int(entry['reps']), int(entry['sets']), int(entry['weight'])]) # [Date, reps, sets, weight]
-            else:
-                print("Unknown Timeframe", self.chartTimeframe)
 
+        db_tablename = self._getDBTableName()
+        if self.chartTimeframe == self.chartTimeFrameOptions[0]: # 30 days
+            data = self.db.loadExerciseData(db_tablename, self.curentUser, offset_days = self.chartTimeOffset*30, offset_days_range = 30)
+        elif self.chartTimeframe == self.chartTimeFrameOptions[1]: # 3 months
+            data = self.db.loadExerciseData(db_tablename, self.curentUser, offset_months = self.chartTimeOffset*3, offset_months_range = 3)
+        elif self.chartTimeframe == self.chartTimeFrameOptions[2]: # 6 months
+            data = self.db.loadExerciseData(db_tablename, self.curentUser, offset_months = self.chartTimeOffset*6, offset_months_range = 6)
+        elif self.chartTimeframe == self.chartTimeFrameOptions[3]: # 1 year
+            data = self.db.loadExerciseData(db_tablename, self.curentUser, offset_years = self.chartTimeOffset, offset_years_range = 1)
+        elif self.chartTimeframe == self.chartTimeFrameOptions[4]: # since beginning
+            data = self.db.loadExerciseData(db_tablename, self.curentUser, get_all=True)
+        else:
+            data = []
+
+        for entry in data:
+            date = entry[4].split('-')
+            entries.append([int(f"{date[0]}{date[1]}{date[2]}"), int(entry[2]), int(entry[1]), float(entry[3])]) # [Date, reps, sets, weight]
         
         if len(entries) > 0: 
             firstDate = min([entry[0] for entry in entries])
@@ -228,16 +204,26 @@ class HomePage:
             # the X-axis uses the points from date indexes (first date = index 0)
             min_x = min([entry[4] for entry in entries])
             max_x = max([entry[4] for entry in entries]) + 1
-            min_y=0
+            min_y = min([min([entry[1] for entry in entries]), min([entry[2] for entry in entries]), min([entry[3] for entry in entries])])
             max_y = max([max([entry[1] for entry in entries]), max([entry[2] for entry in entries]), max([entry[3] for entry in entries])]) + 1
 
             # print(entries)
-            print(firstDate,lastDate,max_x)
+            # print(firstDate,lastDate,max_x)
         else:
             min_x = 0
             max_x = 1
             min_y = 0
             max_y = 1
+
+        db_tablename = self._getDBTableName()
+        if db_tablename == 'running' or db_tablename == 'crosstrainer':
+            tooltipName1 = "Mins"
+            tooltipName2 = "Km"
+            tooltipName3 = "Speed"
+        else:
+            tooltipName1 = "Sets"
+            tooltipName2 = "Reps"
+            tooltipName3 = "Weight"
 
         data_1 = [
             ft.LineChartData( # reps
@@ -260,7 +246,7 @@ class HomePage:
             ),
             ft.LineChartData( # weight
                 data_points=[
-                    ft.LineChartDataPoint(entry[4], entry[3],tooltip=f"Reps: {entry[1]}\nSets: {entry[2]}\nWeight: {entry[3]} \n {datetime.date(int(str(entry[0])[:4]), int(str(entry[0])[4:6]), int(str(entry[0])[6:8])).strftime('%d %b %Y')}") for entry in entries
+                    ft.LineChartDataPoint(entry[4], entry[3],tooltip=f"{tooltipName1}: {entry[2]}\n{tooltipName2}: {entry[1]}\n{tooltipName3}: {entry[3]} \n {datetime.date(int(str(entry[0])[:4]), int(str(entry[0])[4:6]), int(str(entry[0])[6:8])).strftime('%d %b %Y')}") for entry in entries
                 ] if self.showWeightGraph else [],
                 stroke_width=4,
                 color=ft.colors.PINK,
@@ -336,7 +322,7 @@ class HomePage:
             max_x=1,
             animate=ft.Animation(1000, ft.AnimationCurve.EASE),
             # expand=True,
-            height=400
+            height=300
         )
 
     # checkboxes to show or hide graph
@@ -344,19 +330,19 @@ class HomePage:
     # buttons back/forward: go back or forward with amount selected in dropdown
     def chartSettings(self):
         def checkbox_changed(e):
-            self.showRepsGraph = repsCbox.value
-            self.showSetsGraph = setsCbox.value
-            self.showWeightGraph = weightCbox.value
+            self.showSetsGraph = self.chartCBox1.value
+            self.showRepsGraph = self.chartCBox2.value
+            self.showWeightGraph = self.chartCBox3.value
             self.updateProgressChartData()
 
-        repsCbox = ft.Checkbox(label="Reps", value=True, on_change=checkbox_changed, active_color=ft.colors.BLUE_500)
-        setsCbox = ft.Checkbox(label="Sets", value=True, on_change=checkbox_changed, active_color=ft.colors.GREEN)
-        weightCbox = ft.Checkbox(label="Weight", value=True, on_change=checkbox_changed, active_color=ft.colors.PINK)
+        self.chartCBox1 = ft.Checkbox(label="Sets", value=True, on_change=checkbox_changed, active_color=ft.colors.GREEN)
+        self.chartCBox2 = ft.Checkbox(label="Reps", value=True, on_change=checkbox_changed, active_color=ft.colors.BLUE_500)
+        self.chartCBox3 = ft.Checkbox(label="Weight", value=True, on_change=checkbox_changed, active_color=ft.colors.PINK)
 
         def dropdown_changed(e):
             self.chartTimeOffset = 0
             self.chartTimeframe = self.timeframeSelection.value
-            print(self.chartTimeframe)
+            # print(self.chartTimeframe)
             self.updateProgressChartData()
 
         self.timeframeSelection = ft.Dropdown(
@@ -381,9 +367,9 @@ class HomePage:
         ])
 
         checkboxRow = ft.Row(controls=[
-            setsCbox,
-            repsCbox,
-            weightCbox,
+            self.chartCBox1,
+            self.chartCBox2,
+            self.chartCBox3,
         ])
 
         self.chartSettingsCol = ft.Column([
@@ -392,32 +378,47 @@ class HomePage:
         ])
 
     def exerciseNotes(self):
-        def writeNotes():
-            self.page.client_storage.set("exerciseNotesText", self.exerciseNotesText)
-            print(self.exerciseNotesText)
-
-        def notes_onchange(e):
-            self.exerciseNotesText = self.notesTextField.value
-
-            if self.notesTimer is not None:
-                self.notesTimer.cancel()
-                self.notesTimer = Timer(1, writeNotes)
-                self.notesTimer.start()
+        def writeNotes(e):
+            if self.db.writeNotes(self.curentUser, self.notesTextField.value) is True:
+                self.page.snack_bar = ft.SnackBar(ft.Text(f"Notes saved"), bgcolor=ft.colors.BLUE)
             else:
-                self.notesTimer = Timer(1, writeNotes)
-                self.notesTimer.start()
+                self.page.snack_bar = ft.SnackBar(ft.Text(f"Error saving notes"), bgcolor=ft.colors.ORANGE)
+
+            self.page.snack_bar.open = True
+            self.page.update()
+
+        # def notes_onchange(e):
+        #     if self.notesTimer is not None:
+        #         self.notesTimer.cancel()
+        #         self.notesTimer = Timer(1, writeNotes)
+        #         self.notesTimer.start()
+        #     else:
+        #         self.notesTimer = Timer(1, writeNotes)
+        #         self.notesTimer.start()
         
+        noteText = self.db.loadNotes(self.curentUser)
+        if len(noteText) == 0:
+            noteText = ""
+        else:
+            noteText = noteText[0][0]
+
         self.notesTextField = ft.TextField(
             label="Notes",
             multiline=True,
             min_lines=5,
-            value=self.exerciseNotesText,
-            on_change=notes_onchange
+            value=noteText,
+            # on_change=notes_onchange
         )
-        self.notesContainer = ft.Container(content=self.notesTextField, margin=ft.margin.only(top=10))
+        self.notesContainer = ft.Container(
+            content= ft.Column([
+                ft.ElevatedButton("Save notes", on_click=writeNotes),
+                self.notesTextField
+            ]), 
+            margin=ft.margin.only(top=20)
+            )
     
-    def pageHome(self):
-        self.loadData()
+    def show(self):
+        # self.loadData()
 
         self.page.clean()
         self.exerciseSelect()
