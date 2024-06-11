@@ -1,20 +1,36 @@
 import sqlite3
 
+class DB_Error:
+    OK                  = 0
+    CONNECTION_ERROR    = 1000
+    LOGIN_FAILED        = 1001
+    COMMIT_FAILED       = 1002
+    FETCH_FAILED        = 1003
+
 class DB_Fitter:
     def __init__(self):
         self.sqliteConnection = None
         self.cursor = None
+        self.error = DB_Error.OK
+
+    def isConnected(self):
+        if self.cursor != None and self.sqliteConnection != None:
+            return True
+        else:
+            return False
 
     def connect(self):
         try:
             self.sqliteConnection = sqlite3.connect('SQLite/db_fitter.db')
             self.cursor = self.sqliteConnection.cursor()
-            print("Successfully Connected to SQLite")
+            self.error = DB_Error.OK
+            print("Successfully Connected to db_fitter.db")
             return True
         except sqlite3.Error as error:
             self.sqliteConnection = None
             self.cursor = None
-            print("Error while connecting to sqlite", error)
+            self.error = DB_Error.CONNECTION_ERROR
+            print("Error while connecting to db_fitter.db", error)
             return False
 
     def disconnect(self):
@@ -23,23 +39,28 @@ class DB_Fitter:
                 self.cursor.close()
             if self.sqliteConnection != None:
                 self.sqliteConnection.close()
+            self.error = DB_Error.OK
         except:
-            pass
+            self.error = DB_Error.OK
+        self.sqliteConnection = None
+        self.cursor = None
 
     def userlogin(self, username, password):
         try:
             if self.sqliteConnection != None and self.cursor != None:
-                self.cursor.execute(f"select * from users where username='{username}' and password='{password}';")
+                self.cursor.execute(f"select * from users where lower(username)='{username.lower()}' and password='{password}';")
                 record = self.cursor.fetchall()
                 if len(record) == 1:
+                    self.error = DB_Error.OK
                     return True
                 else:
+                    self.error = DB_Error.LOGIN_FAILED
                     return False
             else:
+                self.error = DB_Error.CONNECTION_ERROR
                 return False
         except sqlite3.Error as error:
-            self.disconnect()
-            self.connect()
+            self.error = DB_Error.CONNECTION_ERROR
             return False
         
     # 30 days
@@ -60,12 +81,13 @@ class DB_Fitter:
                     # print(query)
                     self.cursor.execute(query)
                 record = self.cursor.fetchall()
+                self.error = DB_Error.OK
                 return record
             else:
+                self.error = DB_Error.CONNECTION_ERROR
                 return None
         except sqlite3.Error as error:
-            self.disconnect()
-            self.connect()
+            self.error = DB_Error.FETCH_FAILED
             return None
         
     # def loadExerciseData(self, exercise, user):
@@ -87,12 +109,13 @@ class DB_Fitter:
                 self.cursor.execute(f"DELETE FROM {exercise} WHERE user='{user}' AND date='{date}';")
                 self.cursor.execute(f"insert into {exercise}(user,sets,reps,weight,date) values('{user}', '{sets}', '{reps}', '{weight}', '{date}');")
                 self.sqliteConnection.commit()
+                self.error = DB_Error.OK
                 return True
             else:
+                self.error = DB_Error.CONNECTION_ERROR
                 return False
         except sqlite3.Error as error:
-            self.disconnect()
-            self.connect()
+            self.error = DB_Error.COMMIT_FAILED
             return False
         
     def AddDistanceEntry(self, exercise, user, minutes, distance, speed, date):
@@ -101,12 +124,13 @@ class DB_Fitter:
                 self.cursor.execute(f"DELETE FROM {exercise} WHERE user='{user}' AND date='{date}';")
                 self.cursor.execute(f"insert into {exercise}(user,minutes,distance,speed,date) values('{user}', '{minutes}', '{distance}', '{speed}', '{date}');")
                 self.sqliteConnection.commit()
+                self.error = DB_Error.OK
                 return True
             else:
+                self.error = DB_Error.CONNECTION_ERROR
                 return False
         except sqlite3.Error as error:
-            self.disconnect()
-            self.connect()
+            self.error = DB_Error.COMMIT_FAILED
             return False
         
     def DeleteEntry(self, exercise, user, date):
@@ -114,12 +138,13 @@ class DB_Fitter:
             if self.sqliteConnection != None and self.cursor != None:
                 self.cursor.execute(f"DELETE FROM {exercise} WHERE user='{user}' AND date='{date}';")
                 self.sqliteConnection.commit()
+                self.error = DB_Error.OK
                 return True
             else:
+                self.error = DB_Error.CONNECTION_ERROR
                 return False
         except sqlite3.Error as error:
-            self.disconnect()
-            self.connect()
+            self.error = DB_Error.COMMIT_FAILED
             return False
 
     def loadNotes(self, user):
@@ -127,12 +152,13 @@ class DB_Fitter:
             if self.sqliteConnection != None and self.cursor != None:
                 self.cursor.execute(f"select note from notes where user='{user}';")
                 record = self.cursor.fetchall()
+                self.error = DB_Error.OK
                 return record
             else:
+                self.error = DB_Error.CONNECTION_ERROR
                 return None
         except sqlite3.Error as error:
-            self.disconnect()
-            self.connect()
+            self.error = DB_Error.FETCH_FAILED
             return None
     
     def writeNotes(self, user, note):
@@ -141,10 +167,11 @@ class DB_Fitter:
                 self.cursor.execute(f"DELETE FROM notes WHERE user='{user}';")
                 self.cursor.execute(f"insert into notes(user,note) values('{user}', '{note}');")
                 self.sqliteConnection.commit()
+                self.error = DB_Error.OK
                 return True
             else:
+                self.error = DB_Error.CONNECTION_ERROR
                 return False
         except sqlite3.Error as error:
-            self.disconnect()
-            self.connect()
+            self.error = DB_Error.COMMIT_FAILED
             return False

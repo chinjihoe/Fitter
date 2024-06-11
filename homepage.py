@@ -1,6 +1,7 @@
 import flet as ft
 import datetime
-import database
+import loginpage
+from database import DB_Error, DB_Fitter
 from threading import Timer
 
 def date_range(start, end):
@@ -9,7 +10,7 @@ def date_range(start, end):
         yield start + datetime.timedelta(days=d)
 
 class HomePage:
-    def __init__(self, page: ft.Page, db:database.DB_Fitter, curentUser):
+    def __init__(self, page: ft.Page, db:DB_Fitter, curentUser):
         self.page = page
         self.db = db
         self.curentUser = curentUser
@@ -106,13 +107,16 @@ class HomePage:
 
             def close_dlg_yes(e):
                 db_tablename = self._getDBTableName()
-                self.db.DeleteEntry(db_tablename, self.curentUser, self.date_picker.value.strftime('%Y-%m-%d'))
-                self.updateProgressChartData()
-                dlg_modal.open = False
-                self.page.snack_bar = ft.SnackBar(ft.Text(f"Entry deleted"), bgcolor=ft.colors.BLUE)
-                self.page.snack_bar.open = True
-                self.page.update()
-                self.page.update()
+                if self.db.DeleteEntry(db_tablename, self.curentUser, self.date_picker.value.strftime('%Y-%m-%d')) is True:
+                    self.updateProgressChartData()
+                    dlg_modal.open = False
+                    self.page.snack_bar = ft.SnackBar(ft.Text(f"Entry deleted"), bgcolor=ft.colors.GREEN)
+                    self.page.snack_bar.open = True
+                    self.page.update()
+                else:
+                    self.page.snack_bar = ft.SnackBar(ft.Text(f"Delete failed (ERR: {self.db.error})"), bgcolor=ft.colors.ORANGE)
+                    self.page.snack_bar.open = True
+                    self.page.update()
 
             dlg_modal = ft.AlertDialog(
                 modal=True,
@@ -137,19 +141,33 @@ class HomePage:
     # Adds entry in selected exercise with picked date
     def entryAdd(self):
         # positiveNumberfilter = ft.InputFilter('^[0-9]*') # only positive numbers allowed
-        decimalNumberfilter = ft.InputFilter('-?\d+\.?\d*') # all decimal numbers allowed
+        # decimalNumberfilter = ft.InputFilter(r'-?\d+\.?\d*') # all decimal numbers allowed
+        decimalNumberfilter = ft.InputFilter(r'-?\d+\.?\d*|\d+\.?\d*|^-$') # all decimal numbers allowed
         self.input1 = ft.TextField(label="Sets", width=80, height=40, multiline=False, autofocus=False, input_filter=decimalNumberfilter, keyboard_type=ft.KeyboardType.NUMBER)
         self.input2 = ft.TextField(label="Reps", width=80, height=40, multiline=False, autofocus=False, input_filter=decimalNumberfilter, keyboard_type=ft.KeyboardType.NUMBER)
         self.input3 = ft.TextField(label="Weight", width=80, height=40, multiline=False, autofocus=False, input_filter=decimalNumberfilter, keyboard_type=ft.KeyboardType.NUMBER)
         
         def add_clicked(e):
+            if self.input1.value == '-' or self.input2.value == '-' or self.input3.value == '-' or len(self.input1.value) == 0 or len(self.input2.value) == 0  or len(self.input3.value) == 0 :
+                self.page.snack_bar = ft.SnackBar(ft.Text(f"Add failed invalid entry value"), bgcolor=ft.colors.ORANGE)
+                self.page.snack_bar.open = True
+                self.page.update()
+                return
             db_tablename = self._getDBTableName()
             if db_tablename == 'running' or db_tablename == 'crosstrainer':
-                self.db.AddDistanceEntry(db_tablename, self.curentUser, self.input1.value, self.input2.value, self.input3.value, self.date_picker.value.strftime('%Y-%m-%d'))
+                if self.db.AddDistanceEntry(db_tablename, self.curentUser, self.input1.value, self.input2.value, self.input3.value, self.date_picker.value.strftime('%Y-%m-%d')) is False:
+                    self.page.snack_bar = ft.SnackBar(ft.Text(f"Add failed (ERR: {self.db.error})"), bgcolor=ft.colors.ORANGE)
+                    self.page.snack_bar.open = True
+                    self.page.update()
+                    return
             else:
-                self.db.AddWeightEntry(db_tablename, self.curentUser, self.input1.value, self.input2.value, self.input3.value, self.date_picker.value.strftime('%Y-%m-%d'))
+                if self.db.AddWeightEntry(db_tablename, self.curentUser, self.input1.value, self.input2.value, self.input3.value, self.date_picker.value.strftime('%Y-%m-%d')) is False:
+                    self.page.snack_bar = ft.SnackBar(ft.Text(f"Add failed (ERR: {self.db.error})"), bgcolor=ft.colors.ORANGE)
+                    self.page.snack_bar.open = True
+                    self.page.update()
+                    return
             self.updateProgressChartData()
-            self.page.snack_bar = ft.SnackBar(ft.Text(f"Entry added"), bgcolor=ft.colors.BLUE)
+            self.page.snack_bar = ft.SnackBar(ft.Text(f"Entry added"), bgcolor=ft.colors.GREEN)
             self.page.snack_bar.open = True
             self.page.update()
 
@@ -178,6 +196,12 @@ class HomePage:
             data = self.db.loadExerciseData(db_tablename, self.curentUser, get_all=True)
         else:
             data = []
+
+        if data is None:
+            data = []
+            self.page.snack_bar = ft.SnackBar(ft.Text(f"Update chart failed (ERR: {self.db.error})"), bgcolor=ft.colors.ORANGE)
+            self.page.snack_bar.open = True
+            self.page.update()
 
         for entry in data:
             date = entry[4].split('-')
@@ -380,9 +404,9 @@ class HomePage:
     def exerciseNotes(self):
         def writeNotes(e):
             if self.db.writeNotes(self.curentUser, self.notesTextField.value) is True:
-                self.page.snack_bar = ft.SnackBar(ft.Text(f"Notes saved"), bgcolor=ft.colors.BLUE)
+                self.page.snack_bar = ft.SnackBar(ft.Text(f"Notes saved"), bgcolor=ft.colors.GREEN)
             else:
-                self.page.snack_bar = ft.SnackBar(ft.Text(f"Error saving notes"), bgcolor=ft.colors.ORANGE)
+                self.page.snack_bar = ft.SnackBar(ft.Text(f"Saving notes failed (ERR: {self.db.error})"), bgcolor=ft.colors.ORANGE)
 
             self.page.snack_bar.open = True
             self.page.update()
@@ -416,11 +440,47 @@ class HomePage:
             ]), 
             margin=ft.margin.only(top=20)
             )
+        
+    def appbar(self):
+        def reconnect(e):
+            self.db.disconnect()
+            self.db = None
+            self.db = DB_Fitter()
+            self.db.connect()
+            if self.db.error == DB_Error.OK:
+                self.page.snack_bar = ft.SnackBar(ft.Text(f"Reconnect success!"), bgcolor=ft.colors.GREEN)
+                self.updateProgressChartData()
+            else:
+                self.page.snack_bar = ft.SnackBar(ft.Text(f"Reconnect failed (ERR: {self.db.error})"), bgcolor=ft.colors.ORANGE)
+
+            self.page.snack_bar.open = True
+            self.page.update()
+
+        def logout(e):
+            loginpage.LoginPage(self.page, self.db).show()
+
+        self.page.appbar = ft.AppBar(
+            leading_width=40,
+            title=ft.Text("Fitter"),
+            center_title=False,
+            bgcolor=ft.colors.GREEN,
+            actions=[
+                ft.PopupMenuButton(
+                    items=[
+                        ft.PopupMenuItem(
+                            text="Reconnect database", on_click=reconnect
+                        ),
+                        ft.PopupMenuItem(
+                            text=f"Logout ({self.curentUser})", on_click=logout
+                        ),
+                    ]
+                ),
+            ],
+        )
     
     def show(self):
-        # self.loadData()
-
         self.page.clean()
+        self.appbar()
         self.exerciseSelect()
         self.datePicker()
         self.entryAdd()

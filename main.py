@@ -1,28 +1,23 @@
 import flet as ft
-import database
-import loginpage, homepage, settingspage
+from database import DB_Error, DB_Fitter
+import loginpage, homepage
 
 class App:
+    def set_database(self, db):
+        self.db = db
     def main(self, page: ft.Page):
         # page.window_width = 1080/2
         # page.window_height = 2340/2
         page.title="Fitter"
 
         self.page = page
-        self.db = database.DB_Fitter()
+        # self.db = database.DB_Fitter()
+        self.loginpage = loginpage.LoginPage(page, self.db)
+        self.loginpage.show()
 
-        if self.db.connect() is False:
-            self.page.clean()
-            self.page.add(ft.SafeArea(ft.Text("Database connection error."), expand=True))
-        else:
-            self.loginpage = loginpage.LoginPage(page, self.db)
-
-            # self.homepage.show()
-            self.loginpage.show()
-        page.update()
-
-
+db_fitter = DB_Fitter()
 app = App()
+app.set_database(db_fitter)
 ft.app(app.main)
 
 # db = Database()
