@@ -24,7 +24,7 @@ class DB_Fitter:
 
     def connect(self):
         try:
-            self.sqliteConnection = sqlite3.connect('SQLite/db_fitter.db')
+            self.sqliteConnection = sqlite3.connect('SQLite/db_fitter.db', check_same_thread=False)
             self.cursor = self.sqliteConnection.cursor()
             self.error = DB_Error.OK
             print("Successfully Connected to db_fitter.db")
