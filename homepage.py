@@ -1,6 +1,7 @@
 import flet as ft
 import datetime
 import loginpage
+import logging
 from database import DB_Error, DB_Fitter
 from threading import Timer
 
@@ -10,10 +11,14 @@ def date_range(start, end):
         yield start + datetime.timedelta(days=d)
 
 class HomePage:
-    def __init__(self, page: ft.Page, db:DB_Fitter, curentUser):
+    def __init__(self, page: ft.Page):
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(level=logging.INFO)
         self.page = page
-        self.db = db
-        self.curentUser = curentUser
+        self.loginpage = None
+        self.curentUser = None
+        self.db = DB_Fitter()
+        self.db.connect()
         self.exercises = [
             ("Bicep curl", "bicepcurls"),
             ("Chest press", "chestpress"), 
@@ -48,6 +53,12 @@ class HomePage:
         self.chartTimeframe = self.chartTimeFrameOptions[0]
         self.chartTimeOffset = 0
         self.notesTimer = None
+
+    def setLoginPage(self, loginpage):
+        self.loginpage = loginpage
+
+    def setCurrentUser(self, user):
+        self.curentUser = user
 
     def _getDBTableName(self):
         return self.exercises[[exercise[0] for exercise in self.exercises].index(self.exerciseSelection.value)][1]
@@ -443,6 +454,7 @@ class HomePage:
         
     def appbar(self):
         def reconnect(e):
+            self.logger.info("Reconnect DB_Fitter clicked")
             self.db.disconnect()
             self.db = None
             self.db = DB_Fitter()
@@ -457,7 +469,9 @@ class HomePage:
             self.page.update()
 
         def logout(e):
-            loginpage.LoginPage(self.page, self.db).show()
+            self.logger.info(f"{self.curentUser} logged out")
+            self.curentUser = None
+            self.loginpage.show()
 
         self.page.appbar = ft.AppBar(
             leading_width=40,

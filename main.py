@@ -1,10 +1,9 @@
 import flet as ft
 from database import DB_Error, DB_Fitter
 import loginpage, homepage
+import logging
 
 class App:
-    def set_database(self, db):
-        self.db = db
     def main(self, page: ft.Page):
         # page.window_width = 1080/2
         # page.window_height = 2340/2
@@ -12,12 +11,16 @@ class App:
 
         self.page = page
         # self.db = database.DB_Fitter()
-        self.loginpage = loginpage.LoginPage(page, self.db)
-        self.loginpage.show()
+        login = loginpage.LoginPage(page)
+        home = homepage.HomePage(page)
 
-db_fitter = DB_Fitter()
+        login.setHomePage(home)
+        home.setLoginPage(login)
+
+        login.show()
+
+logging.basicConfig(filename='app.log', filemode='a', format='%(asctime)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S')
 app = App()
-app.set_database(db_fitter)
 ft.app(app.main)
 
 # db = Database()

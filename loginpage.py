@@ -1,21 +1,29 @@
-import sqlite3
+import sqlite3, logging
 import flet as ft
 import homepage
 from database import DB_Error, DB_Fitter 
 
 class LoginPage:
-    def __init__(self, page: ft.Page, db:DB_Fitter):
+    def __init__(self, page: ft.Page):
         self.page = page
-        self.db = db
+        self.homepage = None
+        self.db = DB_Fitter()
+        self.db.connect()
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(level=logging.INFO)
+
+    def setHomePage(self, homepage):
+        self.homepage = homepage
 
     def show(self):
-        if self.db.isConnected() is False:
-            if self.db.connect() is False:
-                self.page.snack_bar = ft.SnackBar(ft.Text(f"Database connection error (ERR: {self.db.error})"), bgcolor=ft.colors.ORANGE)
-                self.page.snack_bar.open = True
-                self.page.update()
+        # if self.db.isConnected() is False:
+        #     if self.db.connect() is False:
+        #         self.page.snack_bar = ft.SnackBar(ft.Text(f"Database connection error (ERR: {self.db.error})"), bgcolor=ft.colors.ORANGE)
+        #         self.page.snack_bar.open = True
+        #         self.page.update()
 
         def reconnect(e):
+            self.logger.info("Reconnect DB_Fitter clicked")
             self.db.disconnect()
             self.db = None
             self.db = DB_Fitter()
@@ -31,7 +39,8 @@ class LoginPage:
         def button_clicked(e):
             login_username.value = login_username.value.strip()
             if self.db.userlogin(login_username.value, login_password.value) is True:
-                homepage.HomePage(self.page, self.db, login_username.value).show()
+                self.homepage.setCurrentUser(login_username.value)
+                self.homepage.show()
             else:
                 if self.db.error == DB_Error.LOGIN_FAILED:
                     self.page.snack_bar = ft.SnackBar(ft.Text(f"Wrong username or password"), bgcolor=ft.colors.ORANGE)

@@ -1,4 +1,4 @@
-import sqlite3
+import sqlite3, logging
 
 class DB_Error:
     OK                  = 0
@@ -12,6 +12,9 @@ class DB_Fitter:
         self.sqliteConnection = None
         self.cursor = None
         self.error = DB_Error.OK
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(level=logging.INFO)
+        self.logger.info("Init DB_Fitter")
 
     def isConnected(self):
         if self.cursor != None and self.sqliteConnection != None:
@@ -25,12 +28,14 @@ class DB_Fitter:
             self.cursor = self.sqliteConnection.cursor()
             self.error = DB_Error.OK
             print("Successfully Connected to db_fitter.db")
+            self.logger.info("Successfully Connected to db_fitter.db")
             return True
         except sqlite3.Error as error:
             self.sqliteConnection = None
             self.cursor = None
             self.error = DB_Error.CONNECTION_ERROR
             print("Error while connecting to db_fitter.db", error)
+            self.logger.error(error)
             return False
 
     def disconnect(self):
@@ -40,8 +45,10 @@ class DB_Fitter:
             if self.sqliteConnection != None:
                 self.sqliteConnection.close()
             self.error = DB_Error.OK
-        except:
+            self.logger.info("Disconnect db_fitter.db")
+        except Exception as ex:
             self.error = DB_Error.OK
+            self.logger.error(f"Disconnect db_fitter.db failed: {ex}")
         self.sqliteConnection = None
         self.cursor = None
 
@@ -52,15 +59,19 @@ class DB_Fitter:
                 record = self.cursor.fetchall()
                 if len(record) == 1:
                     self.error = DB_Error.OK
+                    self.logger.info(f"{username} logged in")
                     return True
                 else:
                     self.error = DB_Error.LOGIN_FAILED
+                    self.logger.info(f"Login failed for username: {username}")
                     return False
             else:
                 self.error = DB_Error.CONNECTION_ERROR
+                self.logger.error(f"sqliteConnection or cursor not defined")
                 return False
         except sqlite3.Error as error:
             self.error = DB_Error.CONNECTION_ERROR
+            self.logger.error(error)
             return False
         
     # 30 days
@@ -85,9 +96,11 @@ class DB_Fitter:
                 return record
             else:
                 self.error = DB_Error.CONNECTION_ERROR
+                self.logger.error(f"sqliteConnection or cursor not defined")
                 return None
         except sqlite3.Error as error:
             self.error = DB_Error.FETCH_FAILED
+            self.logger.error(error)
             return None
         
     # def loadExerciseData(self, exercise, user):
@@ -113,9 +126,11 @@ class DB_Fitter:
                 return True
             else:
                 self.error = DB_Error.CONNECTION_ERROR
+                self.logger.error(f"sqliteConnection or cursor not defined")
                 return False
         except sqlite3.Error as error:
             self.error = DB_Error.COMMIT_FAILED
+            self.logger.error(error)
             return False
         
     def AddDistanceEntry(self, exercise, user, minutes, distance, speed, date):
@@ -128,9 +143,11 @@ class DB_Fitter:
                 return True
             else:
                 self.error = DB_Error.CONNECTION_ERROR
+                self.logger.error(f"sqliteConnection or cursor not defined")
                 return False
         except sqlite3.Error as error:
             self.error = DB_Error.COMMIT_FAILED
+            self.logger.error(error)
             return False
         
     def DeleteEntry(self, exercise, user, date):
@@ -142,9 +159,11 @@ class DB_Fitter:
                 return True
             else:
                 self.error = DB_Error.CONNECTION_ERROR
+                self.logger.error(f"sqliteConnection or cursor not defined")
                 return False
         except sqlite3.Error as error:
             self.error = DB_Error.COMMIT_FAILED
+            self.logger.error(error)
             return False
 
     def loadNotes(self, user):
@@ -156,9 +175,11 @@ class DB_Fitter:
                 return record
             else:
                 self.error = DB_Error.CONNECTION_ERROR
+                self.logger.error(f"sqliteConnection or cursor not defined")
                 return None
         except sqlite3.Error as error:
             self.error = DB_Error.FETCH_FAILED
+            self.logger.error(error)
             return None
     
     def writeNotes(self, user, note):
@@ -171,7 +192,9 @@ class DB_Fitter:
                 return True
             else:
                 self.error = DB_Error.CONNECTION_ERROR
+                self.logger.error(f"sqliteConnection or cursor not defined")
                 return False
         except sqlite3.Error as error:
             self.error = DB_Error.COMMIT_FAILED
+            self.logger.error(error)
             return False
