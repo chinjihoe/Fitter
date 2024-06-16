@@ -21,7 +21,10 @@ class App:
 
 logging.basicConfig(filename='app.log', filemode='a', format='%(asctime)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S')
 app = App()
-ft.app(app.main)
+ft.app(
+    target=app.main,
+    assets_dir="assets"
+    )
 
 # db = Database()
 # db.show()

@@ -25,8 +25,10 @@ class HomePage:
             ("Shoulder press", "shoulderpress"), 
             ("Leg press", "legpress"), 
             ("Squat", "squat"), 
+            ("Tricep extension", "tricepextension"),
             ("Lateral pulldown", "lateralpulldown"), 
-            ("Hyperextension", "hyperextension"), 
+            ("Hyperextension", "hyperextension"),
+            ("Hip thrust", "hipthrust"),
             ("Hipabduction (inward)", "hipabductioninward"), 
             ("Hipabduction (outward)", "hipabductionoutward"), 
             ("Abdominal crunch", "abdominalcrunch"),
@@ -37,7 +39,6 @@ class HomePage:
             ("Cross trainer", "crosstrainer")
             ]
         self.selectedDate = datetime.datetime.now().strftime('%d %B %Y')
-        # self.exerciseData = {}
         self.month_abbr = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sept", "Oct", "Nov", "Dec"]
 
         self.showRepsGraph = True
@@ -53,6 +54,7 @@ class HomePage:
         self.chartTimeframe = self.chartTimeFrameOptions[0]
         self.chartTimeOffset = 0
         self.notesTimer = None
+        self.exerciseImage = None
 
     def setLoginPage(self, loginpage):
         self.loginpage = loginpage
@@ -82,6 +84,7 @@ class HomePage:
                 self.chartCBox2.label = 'Reps'
                 self.chartCBox3.label = 'Weight'
             self.updateProgressChartData()
+            self.setExerciseImage(db_tablename)
 
         self.exerciseSelection = ft.Dropdown(
             on_change=dropdown_changed,
@@ -481,9 +484,9 @@ class HomePage:
             actions=[
                 ft.PopupMenuButton(
                     items=[
-                        ft.PopupMenuItem(
-                            text="Reconnect database", on_click=reconnect
-                        ),
+                        # ft.PopupMenuItem(
+                        #     text="Reconnect database", on_click=reconnect
+                        # ),
                         ft.PopupMenuItem(
                             text=f"Logout ({self.curentUser})", on_click=logout
                         ),
@@ -491,6 +494,21 @@ class HomePage:
                 ),
             ],
         )
+
+    def setExerciseImage(self, exercise):
+        if self.exerciseImage is None:
+            self.exerciseImage = ft.Image(
+                width=200,
+                height=200,
+                fit=ft.ImageFit.FIT_WIDTH,
+            )
+            self.exerciseImageContainer = ft.Container(
+                content = self.exerciseImage,
+                alignment=ft.alignment.center
+            )
+
+        self.exerciseImage.src = f"/exercises/{exercise}.jpg"
+        self.page.update()
     
     def show(self):
         self.page.clean()
@@ -503,9 +521,11 @@ class HomePage:
         self.exerciseNotes()
        
         self.updateProgressChartData()
+        self.setExerciseImage(self._getDBTableName())
 
         page_col = ft.Column([
                 self.exerciseSelection, 
+                self.exerciseImageContainer,
                 self.dateRow, 
                 self.entryRow, 
                 self.progresschart, 

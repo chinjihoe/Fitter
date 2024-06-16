@@ -58,15 +58,15 @@ class LoginPage:
             title=ft.Text("Fitter", size=60),
             center_title=False,
             bgcolor=ft.colors.GREEN,
-            actions=[
-                ft.PopupMenuButton(
-                    items=[
-                        ft.PopupMenuItem(
-                            text="Reconnect database", on_click=reconnect
-                        ),
-                    ]
-                ),
-            ],
+            # actions=[
+            #     ft.PopupMenuButton(
+            #         items=[
+            #             ft.PopupMenuItem(
+            #                 text="Reconnect database", on_click=reconnect
+            #             ),
+            #         ]
+            #     ),
+            # ],
         )
 
         login_username = ft.TextField(label="user", autofocus=True, on_submit=button_clicked)
