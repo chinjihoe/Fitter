@@ -198,3 +198,37 @@ class DB_Fitter:
             self.error = DB_Error.COMMIT_FAILED
             self.logger.error(error)
             return False
+        
+    def loadFavoriteExercises(self, user):
+        try:
+            if self.sqliteConnection != None and self.cursor != None:
+                self.cursor.execute(f"select exercise from favorites where user='{user}';")
+                record = self.cursor.fetchall()
+                self.error = DB_Error.OK
+                return record
+            else:
+                self.error = DB_Error.CONNECTION_ERROR
+                self.logger.error(f"sqliteConnection or cursor not defined")
+                return None
+        except sqlite3.Error as error:
+            self.error = DB_Error.COMMIT_FAILED
+            self.logger.error(error)
+            return None
+        
+    def writeFavoriteExercises(self, user, exercise):
+        try:
+            if self.sqliteConnection != None and self.cursor != None:
+                self.cursor.execute(f"DELETE FROM favorites WHERE user='{user}';")
+                if len(exercise) > 0:
+                    self.cursor.execute(f"insert into favorites(user,exercise) values('{user}', '{exercise}');")
+                self.sqliteConnection.commit()
+                self.error = DB_Error.OK
+                return True
+            else:
+                self.error = DB_Error.CONNECTION_ERROR
+                self.logger.error(f"sqliteConnection or cursor not defined")
+                return False
+        except sqlite3.Error as error:
+            self.error = DB_Error.COMMIT_FAILED
+            self.logger.error(error)
+            return False

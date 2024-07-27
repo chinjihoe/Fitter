@@ -19,7 +19,7 @@ class HomePage:
         self.curentUser = None
         self.db = DB_Fitter()
         self.db.connect()
-        self.exercises = [
+        self.exercises = [ # (Display name, table name)
             ("Bicep curl", "bicepcurls"),
             ("Chest press", "chestpress"), 
             ("Shoulder press", "shoulderpress"), 
@@ -33,6 +33,7 @@ class HomePage:
             ("Hipabduction (outward)", "hipabductionoutward"), 
             ("Abdominal crunch", "abdominalcrunch"),
             ("Dips", "dips"),
+            ("Seated dips", "seateddips"),
             ("Back kick", "backkick"),
             ("Seated row", "seatedrow"),
             ("Running", "running"), 
@@ -55,6 +56,7 @@ class HomePage:
         self.chartTimeOffset = 0
         self.notesTimer = None
         self.exerciseImage = None
+        self.favoriteExercisesPagelet = None
 
     def setLoginPage(self, loginpage):
         self.loginpage = loginpage
@@ -62,8 +64,11 @@ class HomePage:
     def setCurrentUser(self, user):
         self.curentUser = user
 
-    def _getDBTableName(self):
-        return self.exercises[[exercise[0] for exercise in self.exercises].index(self.exerciseSelection.value)][1]
+    def _getDBTableName(self, label=None):
+        if label is None:
+            return self.exercises[[exercise[0] for exercise in self.exercises].index(self.exerciseSelection.value)][1]
+        else:
+            return self.exercises[[exercise[0] for exercise in self.exercises].index(label)][1]
 
     # Exercise dropdown menu
     def exerciseSelect(self):
@@ -89,8 +94,16 @@ class HomePage:
         self.exerciseSelection = ft.Dropdown(
             on_change=dropdown_changed,
         )
-        for ex in self.exercises:
-            self.exerciseSelection.options.append(ft.dropdown.Option(ex[0]))
+        favorites = self.db.loadFavoriteExercises(self.curentUser)
+        if favorites is None or len(favorites) == 0:
+            for ex in self.exercises:
+                self.exerciseSelection.options.append(ft.dropdown.Option(ex[0]))
+        else:
+            # favorites = favorites[0]
+            favorites = list(favorites[0][0].split(","))
+            for ex in self.exercises:
+                if ex[1] in favorites:
+                    self.exerciseSelection.options.append(ft.dropdown.Option(ex[0]))
         self.exerciseSelection.value = self.exerciseSelection.options[0].key
 
     # Date picker overlay menu
@@ -456,25 +469,58 @@ class HomePage:
             )
         
     def appbar(self):
-        def reconnect(e):
-            self.logger.info("Reconnect DB_Fitter clicked")
-            self.db.disconnect()
-            self.db = None
-            self.db = DB_Fitter()
-            self.db.connect()
-            if self.db.error == DB_Error.OK:
-                self.page.snack_bar = ft.SnackBar(ft.Text(f"Reconnect success!"), bgcolor=ft.colors.GREEN)
-                self.updateProgressChartData()
-            else:
-                self.page.snack_bar = ft.SnackBar(ft.Text(f"Reconnect failed (ERR: {self.db.error})"), bgcolor=ft.colors.ORANGE)
+        # def reconnect(e):
+        #     self.logger.info("Reconnect DB_Fitter clicked")
+        #     self.db.disconnect()
+        #     self.db = None
+        #     self.db = DB_Fitter()
+        #     self.db.connect()
+        #     if self.db.error == DB_Error.OK:
+        #         self.page.snack_bar = ft.SnackBar(ft.Text(f"Reconnect success!"), bgcolor=ft.colors.GREEN)
+        #         self.updateProgressChartData()
+        #     else:
+        #         self.page.snack_bar = ft.SnackBar(ft.Text(f"Reconnect failed (ERR: {self.db.error})"), bgcolor=ft.colors.ORANGE)
 
-            self.page.snack_bar.open = True
-            self.page.update()
+        #     self.page.snack_bar.open = True
+        #     self.page.update()
+
+        def showFavoriteExercises(e):
+            def checkbox_changed(e1):
+                favorites = ','.join([self._getDBTableName(check.label) for check in checkboxes if check.value is True])
+                self.db.writeFavoriteExercises(self.curentUser, favorites)
+
+            if self.favoriteExercisesPagelet is None:
+                favorites = self.db.loadFavoriteExercises(self.curentUser)
+                if len(favorites) > 0:
+                    favorites = list(favorites[0][0].split(","))
+                checkboxes = [ft.Checkbox(label=exercise[0], value=True if exercise[1] in favorites else False, on_change=checkbox_changed) for exercise in self.exercises]
+                self.favoriteExercisesPagelet = ft.Pagelet(
+                    content=ft.Column([
+                                ft.Column(checkboxes,
+                                scroll=ft.ScrollMode.ALWAYS,
+                                height=self.page.height - 130,
+                                width=self.page.width,
+                            ),
+                            ft.ElevatedButton(text="Done", on_click=closeFavoriteExercises),
+                        ],
+                        height=self.page.height,
+                        width=self.page.width,
+                    )
+                )
+                self.page.add(self.favoriteExercisesPagelet)
+
+        def closeFavoriteExercises(e):
+            if self.favoriteExercisesPagelet is not None:
+                self.page.remove(self.favoriteExercisesPagelet)
+                self.page.update()
+                self.favoriteExercisesPagelet = None
+                self.show()
 
         def logout(e):
             self.logger.info(f"{self.curentUser} logged out")
             self.curentUser = None
             self.loginpage.show()
+            self.favoriteExercisesPagelet = None
 
         self.page.appbar = ft.AppBar(
             leading_width=40,
@@ -487,6 +533,9 @@ class HomePage:
                         # ft.PopupMenuItem(
                         #     text="Reconnect database", on_click=reconnect
                         # ),
+                        ft.PopupMenuItem(
+                            text=f"Favorite exercises", on_click=showFavoriteExercises
+                        ),
                         ft.PopupMenuItem(
                             text=f"Logout ({self.curentUser})", on_click=logout
                         ),
@@ -542,5 +591,10 @@ class HomePage:
         def page_resized(e):
             page_col.height=self.page.height
             page_col.width=self.page.width
+            if self.favoriteExercisesPagelet is not None:
+                self.favoriteExercisesPagelet.content.height = self.page.height
+                self.favoriteExercisesPagelet.content.width = self.page.width
+                self.favoriteExercisesPagelet.content.controls[0].height = self.page.height - 130
+                self.favoriteExercisesPagelet.content.controls[0].width = self.page.width
             self.page.update()
         self.page.on_resize = page_resized
